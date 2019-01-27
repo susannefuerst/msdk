@@ -13,9 +13,8 @@
 
 package io.github.msdk.isotopes.isotopepattern;
 
-import java.io.IOException;
-import java.util.Arrays;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nonnull;
 
@@ -32,7 +31,7 @@ import io.github.msdk.MSDKRuntimeException;
 import io.github.msdk.datamodel.MsSpectrum;
 import io.github.msdk.datamodel.MsSpectrumType;
 import io.github.msdk.datamodel.SimpleMsSpectrum;
-import io.github.msdk.isotopes.isotopepattern.impl.ExtendedIsotopePattern;
+import io.github.msdk.isotopes.isotopepattern.impl.TracedIsotopePattern;
 import io.github.msdk.util.MsSpectrumUtil;
 
 /**
@@ -42,82 +41,8 @@ public class IsotopePatternGeneratorAlgorithm {
 
   private static final double ELECTRON_MASS = 5.4857990943E-4;
 
-  public static void main(String[] args) throws IOException {
-    String chemicalFormula = "C7H14NOSi+";
-    String capacityFormula = "C4N";
-    String tracer1 = "13C";
-    String tracer2 = "15N";
-    double tracer1Inc = 0.2;
-    double tracer2Inc = 0.2;
-    double tracerAllInc = 0.2;
-    double minAbundance = 0.0001;
-    float intensityScale = 1000f;
-    double mzTolerance = 0.0001;
-    boolean storeFormula = true;
-    MsSpectrum spectrum =
-        simulateMultiTracedPattern(chemicalFormula, capacityFormula, tracer1, tracer2, tracer1Inc,
-            tracer2Inc, tracerAllInc, minAbundance, intensityScale, mzTolerance, storeFormula);
-    System.out.println(Arrays.toString(spectrum.getMzValues()));
-    System.out.println(Arrays.toString(spectrum.getIntensityValues()));
-    System.out
-        .println(Arrays.toString(((ExtendedIsotopePattern) spectrum).getIsotopeComposition()));
-  }
-
-  public static @Nonnull MsSpectrum simulateMultiTracedPattern(@Nonnull String chemicalFormula,
-      @Nonnull String capacityFormula, @Nonnull String tracer1, @Nonnull String tracer2,
-      @Nonnull double tracer1Inc, @Nonnull double tracer2Inc, double tracerAllInc,
-      @Nonnull Double minAbundance, @Nonnull Float intensityScale, @Nonnull Double mzTolerance,
-      @Nonnull Boolean storeFormula) throws IOException {
-    IsotopePatternGeneratorUtils.multiTracerQualityCheck(chemicalFormula, capacityFormula, tracer1,
-        tracer2, tracer1Inc, tracer2Inc, tracerAllInc);
-    Matcher m = IsotopePatternGeneratorUtils.formulaPattern.matcher(chemicalFormula);
-    m.matches();
-    String formulaNoCharge = m.group(1);
-    String chargeCount = m.group(4);
-    String chargeSign = m.group(5);
-    String suffix = chargeCount + chargeSign;
-    String tracer1ReducedFormula = "[" + IsotopePatternGeneratorUtils.reduceFormula(formulaNoCharge,
-        capacityFormula, tracer1, null) + "]" + suffix;
-    String tracer2ReducedFormula = "[" + IsotopePatternGeneratorUtils.reduceFormula(formulaNoCharge,
-        capacityFormula, null, tracer2) + "]" + suffix;
-    String tracerBothReducedFormula = "[" + IsotopePatternGeneratorUtils
-        .reduceFormula(formulaNoCharge, capacityFormula, tracer1, tracer2) + "]" + suffix;
-    double totalInc = tracer1Inc + tracer2Inc + tracerAllInc;
-    MsSpectrum naturalPattern = generateIsotopes(chemicalFormula, minAbundance,
-        (float) (1.0f - totalInc), mzTolerance, storeFormula);
-    MsSpectrum tracer1ReducedPattern = generateIsotopes(tracer1ReducedFormula, minAbundance,
-        (float) tracer1Inc, mzTolerance, storeFormula);
-    MsSpectrum tracer2ReducedPattern = generateIsotopes(tracer2ReducedFormula, minAbundance,
-        (float) tracer2Inc, mzTolerance, storeFormula);
-    MsSpectrum tracerBothReducedPattern = generateIsotopes(tracerBothReducedFormula, minAbundance,
-        (float) tracerAllInc, mzTolerance, storeFormula);
-    tracer1ReducedPattern = IsotopePatternGeneratorUtils.addTracerMass(tracer1ReducedPattern,
-        capacityFormula, tracer1, null);
-    tracer2ReducedPattern = IsotopePatternGeneratorUtils.addTracerMass(tracer2ReducedPattern,
-        capacityFormula, null, tracer2);
-    tracerBothReducedPattern = IsotopePatternGeneratorUtils.addTracerMass(tracerBothReducedPattern,
-        capacityFormula, tracer1, tracer2);
-    if (storeFormula) {
-      tracer1ReducedPattern = IsotopePatternGeneratorUtils
-          .addTracerComposition(tracer1ReducedPattern, capacityFormula, tracer1, null);
-      tracer2ReducedPattern = IsotopePatternGeneratorUtils
-          .addTracerComposition(tracer2ReducedPattern, capacityFormula, null, tracer2);
-      tracerBothReducedPattern = IsotopePatternGeneratorUtils
-          .addTracerComposition(tracerBothReducedPattern, capacityFormula, tracer1, tracer2);
-
-    }
-    MsSpectrum mergedSpectrum =
-        IsotopePatternGeneratorUtils.merge(naturalPattern, tracer1ReducedPattern);
-    mergedSpectrum = IsotopePatternGeneratorUtils.merge(mergedSpectrum, tracer2ReducedPattern);
-    mergedSpectrum = IsotopePatternGeneratorUtils.merge(mergedSpectrum, tracerBothReducedPattern);
-    mergedSpectrum = IsotopePatternGeneratorUtils.normalize(mergedSpectrum, intensityScale);
-    return mergedSpectrum;
-  }
-
-  public static @Nonnull MsSpectrum generateIsotopes(@Nonnull String chemicalFormula,
-      @Nonnull Double minAbundance, @Nonnull Float intensityScale, @Nonnull Double mzTolerance) {
-    return generateIsotopes(chemicalFormula, minAbundance, intensityScale, mzTolerance, false);
-  }
+  private static final Pattern formulaPattern =
+      Pattern.compile("^[\\[\\(]?(([A-Z][a-z]?[0-9]*)+)[\\]\\)]?(([0-9]*)([-+]))?$");
 
   /**
    * <p>
@@ -131,10 +56,29 @@ public class IsotopePatternGeneratorAlgorithm {
    * @return a {@link io.github.msdk.datamodel.MsSpectrum} object.
    */
   public static @Nonnull MsSpectrum generateIsotopes(@Nonnull String chemicalFormula,
-      @Nonnull Double minAbundance, @Nonnull Float intensityScale, @Nonnull Double mzTolerance,
-      @Nonnull Boolean storeFormula) {
+      @Nonnull Double minAbundance, @Nonnull Float intensityScale, @Nonnull Double mzTolerance) {
+    return generateIsotopes(chemicalFormula, minAbundance, intensityScale, mzTolerance, false,
+        true);
+  }
 
-    Matcher m = IsotopePatternGeneratorUtils.formulaPattern.matcher(chemicalFormula);
+  /**
+   * <p>
+   * generateIsotopes.
+   * </p>
+   *
+   * @param chemicalFormula a {@link java.lang.String} object.
+   * @param minAbundance a {@link java.lang.Double} object.
+   * @param intensityScale a {@link java.lang.Float} object.
+   * @param mzTolerance a {@link java.lang.Double} object.
+   * @param storeFormula a {@link java.lang.Boolean} object.
+   * @param normalize a {@link java.lang.Boolean} object.
+   * @return a {@link io.github.msdk.datamodel.MsSpectrum} object.
+   */
+  public static @Nonnull MsSpectrum generateIsotopes(@Nonnull String chemicalFormula,
+      @Nonnull Double minAbundance, @Nonnull Float intensityScale, @Nonnull Double mzTolerance,
+      @Nonnull Boolean storeFormula, @Nonnull Boolean normalize) {
+
+    Matcher m = formulaPattern.matcher(chemicalFormula);
     if (!m.matches())
       throw new IllegalArgumentException("Invalid chemical formula: " + chemicalFormula);
     String formulaNoCharge = m.group(1);
@@ -162,14 +106,8 @@ public class IsotopePatternGeneratorAlgorithm {
           "Could not generate CDK chemical formula for " + formulaNoCharge);
 
     return generateIsotopes(cdkFormula, charge, minAbundance, intensityScale, mzTolerance,
-        storeFormula);
+        storeFormula, normalize);
 
-  }
-
-  public static @Nonnull MsSpectrum generateIsotopes(@Nonnull IMolecularFormula cdkFormula,
-      @Nonnull Integer charge, @Nonnull Double minAbundance, @Nonnull Float intensityScale,
-      @Nonnull Double mzTolerance) {
-    return generateIsotopes(cdkFormula, charge, minAbundance, intensityScale, mzTolerance, false);
   }
 
   /**
@@ -186,7 +124,28 @@ public class IsotopePatternGeneratorAlgorithm {
    */
   public static @Nonnull MsSpectrum generateIsotopes(@Nonnull IMolecularFormula cdkFormula,
       @Nonnull Integer charge, @Nonnull Double minAbundance, @Nonnull Float intensityScale,
-      @Nonnull Double mzTolerance, @Nonnull Boolean storeFormula) {
+      @Nonnull Double mzTolerance) {
+    return generateIsotopes(cdkFormula, charge, minAbundance, intensityScale, mzTolerance, false,
+        true);
+  }
+
+  /**
+   * <p>
+   * generateIsotopes.
+   * </p>
+   *
+   * @param cdkFormula a {@link org.openscience.cdk.interfaces.IMolecularFormula} object.
+   * @param charge a {@link java.lang.Integer} object.
+   * @param minAbundance a {@link java.lang.Double} object.
+   * @param intensityScale a {@link java.lang.Float} object.
+   * @param mzTolerance a {@link java.lang.Double} object.
+   * @param storeFormula a {@link java.lang.Boolean} object.
+   * @param normalize a {@link java.lang.Boolean} object.
+   * @return a {@link io.github.msdk.datamodel.MsSpectrum} object.
+   */
+  public static @Nonnull MsSpectrum generateIsotopes(@Nonnull IMolecularFormula cdkFormula,
+      @Nonnull Integer charge, @Nonnull Double minAbundance, @Nonnull Float intensityScale,
+      @Nonnull Double mzTolerance, @Nonnull Boolean storeFormula, @Nonnull Boolean normalize) {
 
     IsotopePatternGenerator generator = new IsotopePatternGenerator(minAbundance);
     generator.setStoreFormulas(storeFormula);
@@ -212,20 +171,23 @@ public class IsotopePatternGeneratorAlgorithm {
       intensityValues[i] = (float) isotope.getIntensity();
 
       if (storeFormula) {
-        isotopeComposition[i] = IsotopePatternGeneratorUtils.formatCDKString(isotope.toString());
+        isotopeComposition[i] = formatCDKString(isotope.toString());
       }
 
     }
 
     final int newSize = mergeIsotopes(mzValues, intensityValues, numOfIsotopes, mzTolerance);
 
-    MsSpectrumUtil.normalizeIntensity(intensityValues, newSize, intensityScale);
+    if (normalize) {
+      MsSpectrumUtil.normalizeIntensity(intensityValues, newSize, intensityScale);
+    } else {
+      MsSpectrumUtil.scaleIntensity(intensityValues, newSize, intensityScale);
+    }
 
     MsSpectrum result;
     if (storeFormula) {
-      String formulaString = MolecularFormulaManipulator.getString(cdkFormula);
-      result = new ExtendedIsotopePattern(mzValues, intensityValues, newSize,
-          MsSpectrumType.CENTROIDED, formulaString, isotopeComposition);
+      result = new TracedIsotopePattern(mzValues, intensityValues, newSize,
+          MsSpectrumType.CENTROIDED, isotopeComposition);
     } else {
       result = new SimpleMsSpectrum(mzValues, intensityValues, newSize, MsSpectrumType.CENTROIDED);
     }
@@ -272,5 +234,12 @@ public class IsotopePatternGeneratorAlgorithm {
     return ptrCur + 1;
 
   }
+
+  private static String formatCDKString(String cdkString) {
+    int startIndex = cdkString.lastIndexOf("MF=");
+    int endIndex = cdkString.length() - 1;
+    return cdkString.substring(startIndex + 3, endIndex);
+  }
+
 
 }
