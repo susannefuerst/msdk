@@ -153,4 +153,50 @@ public class TracedIsotopePattern extends SimpleMsSpectrum {
     }
     return builder.toString();
   }
+
+  public double getMostFrequentMass() {
+    int massIndex = 0;
+    float highestIntensity = 0;
+    float[] intensities = getIntensityValues();
+    for (int i = 0; i < intensities.length; i++) {
+      if (intensities[i] > highestIntensity) {
+        highestIntensity = intensities[i];
+        massIndex = i;
+      }
+    }
+    return getMzValues()[massIndex];
+  }
+
+  public float getHighestIntensity() {
+    float highestIntensity = 0;
+    float[] intensities = getIntensityValues();
+    for (int i = 0; i < intensities.length; i++) {
+      if (intensities[i] > highestIntensity) {
+        highestIntensity = intensities[i];
+      }
+    }
+    return highestIntensity;
+  }
+
+  public double getHighestMass() {
+    double highestMass = 0;
+    double[] masses = getMzValues();
+    for (int i = 0; i < masses.length; i++) {
+      if (masses[i] > highestMass) {
+        highestMass = masses[i];
+      }
+    }
+    return highestMass;
+  }
+
+  public TracedIsotopePattern normalize(float scaleFactor) {
+    float highestIntensity = getHighestIntensity();
+    float[] intensities = getIntensityValues();
+    float[] scaledIntensities = new float[intensities.length];
+    for (int i = 0; i < intensities.length; i++) {
+      scaledIntensities[i] = intensities[i] / highestIntensity * scaleFactor;
+    }
+    return new TracedIsotopePattern(getMzValues(), scaledIntensities, intensities.length,
+        getSpectrumType(), getIsotopeComposition(), getHeavyIsotopes());
+  }
 }
