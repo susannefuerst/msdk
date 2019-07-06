@@ -13,12 +13,11 @@
 
 package io.github.msdk.util;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.TreeMap;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -239,6 +238,30 @@ public class MsSpectrumUtil {
 
   /**
    * <p>
+   * scaleIntensity.
+   * </p>
+   *
+   * @param intensityValues an array of float.
+   * @param size a {@link java.lang.Integer} object.
+   * @param scale a {@link java.lang.Float} object.
+   */
+  public static void scaleIntensity(@Nonnull float intensityValues[], @Nonnull Integer size,
+      @Nonnull Float scale) {
+
+    // Parameter check
+    Preconditions.checkNotNull(intensityValues);
+    Preconditions.checkNotNull(size);
+    Preconditions.checkPositionIndex(size, intensityValues.length);
+    Preconditions.checkNotNull(scale);
+
+    for (int i = 0; i < intensityValues.length; i++) {
+      intensityValues[i] = intensityValues[i] * scale;
+    }
+
+  }
+
+  /**
+   * <p>
    * msSpectrumToString.
    * </p>
    *
@@ -329,9 +352,8 @@ public class MsSpectrumUtil {
   }
 
   /**
-   * Method preprocesses list of spectra, limits its amount
-   * Filtering of Spectrum objects is done by retrieving top N Spectrum objects with largest
-   * intensity values
+   * Method preprocesses list of spectra, limits its amount Filtering of Spectrum objects is done by
+   * retrieving top N Spectrum objects with largest intensity values
    *
    * @param spectra - list of spectrum to be preprocessed
    * @param listLimit - maximum amount of items to be in a new list
@@ -363,7 +385,8 @@ public class MsSpectrumUtil {
     List<MsSpectrum> ordered = new LinkedList<>();
     for (int i = 0; i < listLimit; i++) {
       Entry<Float, MsSpectrum> pair = orderedSpectra.firstEntry();
-      if (pair == null) break;
+      if (pair == null)
+        break;
       orderedSpectra.remove(pair.getKey());
       MsSpectrum ms = pair.getValue();
       ordered.add(ms);
